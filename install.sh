@@ -28,13 +28,20 @@ python3 -m venv "$VENV_DIR"
 
 echo "== Tao shortcut =="
 mkdir -p "$HOME/.local/share/applications"
+mkdir -p "$HOME/.local/share/icons"
+# Icon goc port tu ban C# (uu tien PNG 256, fallback ico)
+if [[ -f "$INSTALL_DIR/foldersync/assets/icon-256.png" ]]; then
+  cp "$INSTALL_DIR/foldersync/assets/icon-256.png" "$HOME/.local/share/icons/foldersync.png"
+elif [[ -f "$INSTALL_DIR/foldersync/assets/icon.ico" ]]; then
+  cp "$INSTALL_DIR/foldersync/assets/icon.ico" "$HOME/.local/share/icons/foldersync.ico"
+fi
 cat > "$HOME/.local/share/applications/FolderSync.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=FolderSync
 Comment=Cong cu dong bo thu muc theo lich
 Exec=$VENV_DIR/bin/python $INSTALL_DIR/main.py
-Icon=folder-sync
+Icon=foldersync
 Terminal=false
 Categories=Utility;
 EOF

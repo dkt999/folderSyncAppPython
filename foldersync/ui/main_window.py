@@ -1,8 +1,10 @@
 """Cua so chinh - port tu MainForm (tab control + tray icon)."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from qfluentwidgets import FluentIcon, FluentWindow, InfoBar, InfoBarPosition
@@ -15,11 +17,24 @@ from .mounts_page import MountsPage
 from .settings_page import SettingsPage
 from .tasks_page import TasksPage
 
+# Icon goc port tu ban C# (FolderSyncApp/icon.ico)
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+
+
+def app_icon() -> QIcon:
+    """Icon cua app - uu tien icon.ico goc, fallback ve FluentIcon."""
+    for name in ("icon.ico", "icon-256.png"):
+        p = _ASSETS_DIR / name
+        if p.is_file():
+            return QIcon(str(p))
+    return FluentIcon.SYNC.icon()
+
 
 class MainWindow(FluentWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Folder Sync")
+        self.setWindowIcon(app_icon())
         self.resize(980, 640)
 
         self._tasks: list[BackupTask] = load_tasks()
@@ -121,7 +136,7 @@ class MainWindow(FluentWindow):
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         self._tray = QSystemTrayIcon(self)
-        self._tray.setIcon(FluentIcon.SYNC.icon())
+        self._tray.setIcon(app_icon())
         self._tray.setToolTip("Folder Sync")
 
         menu = QMenu()
