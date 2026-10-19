@@ -1,2 +1,4 @@
-PyQt6>=6.5
-PyQt6-Fluent-Widgets>=1.5
+# Pin cung phien ban da test OK (42/42). De >= se keo ban moi nhat
+# co the gay crash khoi dong (vd: QThread: Destroyed while thread...).
+PyQt6==6.7.1
+PyQt6-Fluent-Widgets==1.7.0
