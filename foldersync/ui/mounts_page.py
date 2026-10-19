@@ -40,6 +40,7 @@ from ..mounts import (
     parse_fstab,
     resolve_server,
     server_of,
+    source_with_ip,
     validate_source,
     validate_target,
 )
@@ -72,6 +73,7 @@ class MountsPage(QWidget):
         # (manual_page va scheduler van giu reference nen khong bi.)
         self._worker: PrivWorker | None = None
         self._tested_key: tuple | None = None  # (source, target, username, domain, guest)
+        self._tested_ip: str | None = None  # IP da verify o lan mount thu gan nhat
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 16, 24, 16)
@@ -246,8 +248,10 @@ class MountsPage(QWidget):
         source, target, username, _pw, domain, guest = self._form_values()
         return (source, target, username, domain, guest)
 
-    def _build_options_and_line(self) -> tuple[str, str]:
+    def _build_options_and_line(self, source_override: str | None = None) -> tuple[str, str]:
         source, target, username, _pw, _domain, guest = self._form_values()
+        if source_override:
+            source = source_override
         uid, gid = current_uid_gid()
         cred_path = None if guest else credentials_path_for(target)
         options = build_options(uid, gid, cred_path, guest)
@@ -314,6 +318,11 @@ class MountsPage(QWidget):
                     ),
                 }
             log("→ Port 445 mở, tiếp tục.")
+            # Dung IP thay cho ten may de kernel khong can tu phan giai DNS
+            # (kernel phan giai theo cach rieng, co the khac DNS cua app).
+            mount_source = source_with_ip(source, ip)
+            if mount_source != source:
+                log(f"→ Dùng IP để mount: {mount_source}")
             if not guest:
                 log("→ Đang xin quyền root để lưu credentials (có thể hiện hộp thoại mật khẩu)...")
                 r = run_privileged(
@@ -325,12 +334,16 @@ class MountsPage(QWidget):
                     return r
                 log("→ Đã lưu credentials.")
             log("→ Đang mount thử (chờ tối đa 60 giây)...")
-            return run_privileged(["test-mount", "--source", source, "--options", options])
+            r = run_privileged(["test-mount", "--source", mount_source, "--options", options])
+            if r.get("ok"):
+                r["ip"] = ip  # de _on_save dung lai IP da verify
+            return r
 
         def done(result: dict) -> None:
             self._on_priv_done(result)
             if result.get("ok"):
                 self._tested_key = self._current_key()
+                self._tested_ip = result.get("ip")
                 self._log("→ Mount thử OK. Giờ có thể bấm [2. Lưu vào fstab & mount].")
 
         self._run_priv(job, done)
@@ -348,7 +361,10 @@ class MountsPage(QWidget):
             )
             return
         _s, _t, _u, password, domain, _g = self._form_values()
-        options, line = self._build_options_and_line()
+        # Dung IP da verify (thay cho ten may) de tranh loi DNS cua kernel,
+        # nhat la khi boot (Tailscale MagicDNS co the chua san sang).
+        mount_source = source_with_ip(source, self._tested_ip) if self._tested_ip else source
+        options, line = self._build_options_and_line(mount_source)
         self._log(f"Dòng fstab sẽ thêm:\n  {line}")
         self._log("Đang lưu (có backup + kiểm tra cú pháp)...")
 

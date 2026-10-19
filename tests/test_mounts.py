@@ -21,6 +21,7 @@ from foldersync.mounts import (
     parse_fstab,
     resolve_server,
     server_of,
+    source_with_ip,
     unescape_fstab,
     validate_source,
     validate_target,
@@ -102,6 +103,12 @@ def test_normalize_target():
 def test_check_smb_port_closed():
     # Port discard (9) gan nhu chac chan dong -> False nhanh, khong treo.
     assert check_smb_port("127.0.0.1", port=9, timeout=1.0) is False
+
+
+def test_source_with_ip():
+    assert source_with_ip("//com0068/02. share", "100.127.234.82") == "//100.127.234.82/02. share"
+    assert source_with_ip("smb://com0068/02. share/", "100.127.234.82") == "//100.127.234.82/02. share"
+    assert source_with_ip("//com0068", "1.2.3.4") == "//1.2.3.4"
 
 
 def test_server_of():

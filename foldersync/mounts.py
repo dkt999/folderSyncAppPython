@@ -81,6 +81,18 @@ def check_smb_port(ip: str, port: int = 445, timeout: float = 5.0) -> bool:
         return False
 
 
+def source_with_ip(source: str, ip: str) -> str:
+    """Thay ten may bang IP trong source de kernel khong can tu phan giai DNS.
+    (Kernel phan giai DNS theo cach rieng, co the khac voi DNS ma app/Nautilus
+    dung - VD: khong biet Tailscale MagicDNS.)
+    VD: //com0068/02. share + 100.127.234.82 -> //100.127.234.82/02. share"""
+    s = normalize_source(source)
+    rest = s[2:].split("/", 1)
+    if len(rest) == 2 and rest[1]:
+        return f"//{ip}/{rest[1]}"
+    return f"//{ip}"
+
+
 def normalize_target(raw: str) -> str:
     """Chuan hoa diem mount thanh '/mnt/<ten>'.
     Nguoi dung chi can go ten (VD: COM0068Share); co go thua '/mnt/'
