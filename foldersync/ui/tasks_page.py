@@ -22,8 +22,8 @@ from ..models import BackupTask
 from .task_edit_dialog import TaskEditDialog
 
 HEADERS = [
-    "Tên task", "Nguồn", "Đích", "Giờ chạy", "Bật",
-    "Trạng thái", "Tiến độ", "Chạy lần cuối", "Kết quả",
+    "Task name", "Source", "Destination", "Run at", "Enabled",
+    "Status", "Progress", "Last run", "Result",
 ]
 COL_ENABLED = 4
 
@@ -42,7 +42,7 @@ class TasksPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 16, 24, 16)
         layout.setSpacing(12)
-        layout.addWidget(SubtitleLabel("Task đồng bộ theo lịch"))
+        layout.addWidget(SubtitleLabel("Scheduled sync tasks"))
 
         self.table = TableWidget(self)
         self.table.setColumnCount(len(HEADERS))
@@ -57,15 +57,15 @@ class TasksPage(QWidget):
         layout.addWidget(self.table, 1)
 
         btn_row = QHBoxLayout()
-        self.add_btn = PrimaryPushButton(FluentIcon.ADD, "Thêm")
+        self.add_btn = PrimaryPushButton(FluentIcon.ADD, "Add")
         self.add_btn.clicked.connect(lambda: self.add_requested.emit())
-        self.edit_btn = PushButton(FluentIcon.EDIT, "Sửa")
+        self.edit_btn = PushButton(FluentIcon.EDIT, "Edit")
         self.edit_btn.clicked.connect(self._emit_selected(self.edit_requested))
-        self.delete_btn = PushButton(FluentIcon.DELETE, "Xóa")
+        self.delete_btn = PushButton(FluentIcon.DELETE, "Delete")
         self.delete_btn.clicked.connect(self._emit_selected(self.delete_requested))
-        self.run_btn = PushButton(FluentIcon.PLAY, "Chạy ngay")
+        self.run_btn = PushButton(FluentIcon.PLAY, "Run now")
         self.run_btn.clicked.connect(self._emit_selected(self.run_now_requested))
-        self.cancel_btn = PushButton(FluentIcon.CANCEL, "Hủy task")
+        self.cancel_btn = PushButton(FluentIcon.CANCEL, "Cancel task")
         self.cancel_btn.clicked.connect(self._emit_selected(self.cancel_requested))
         for b in (self.add_btn, self.edit_btn, self.delete_btn, self.run_btn, self.cancel_btn):
             btn_row.addWidget(b)
@@ -77,8 +77,8 @@ class TasksPage(QWidget):
             index = self.selected_index()
             if index < 0:
                 InfoBar.info(
-                    "Chưa chọn task",
-                    "Hãy chọn một task trong bảng trước.",
+                    "No task selected",
+                    "Please select a task in the table first.",
                     parent=self,
                     position=InfoBarPosition.TOP,
                 )
@@ -122,10 +122,10 @@ class TasksPage(QWidget):
         self.table.setCellWidget(row, COL_ENABLED, wrapper)
 
         if task.is_running:
-            status = "Đang chạy..."
+            status = "Running..."
             progress = f"{task.progress}%" if task.progress >= 0 else "..."
         else:
-            status = "Chờ"
+            status = "Waiting"
             progress = ""
         self.table.setItem(row, 5, item(status))
         self.table.setItem(row, 6, item(progress))
@@ -139,13 +139,13 @@ class TasksPage(QWidget):
             except ValueError:
                 last_run = task.last_run_utc
         else:
-            last_run = "Chưa chạy"
+            last_run = "Never"
         self.table.setItem(row, 7, item(last_run))
 
         if task.last_run_success is True:
-            result = "Thành công"
+            result = "Success"
         elif task.last_run_success is False:
-            result = "Lỗi"
+            result = "Error"
         else:
             result = ""
         self.table.setItem(row, 8, item(result))
@@ -158,8 +158,8 @@ class TasksPage(QWidget):
     @staticmethod
     def confirm_delete(task_name: str, parent: QWidget) -> bool:
         box = MessageBox(
-            "Xác nhận xóa",
-            f'Xóa task "{task_name}"?',
+            "Confirm delete",
+            f'Delete task "{task_name}"?',
             parent,
         )
         return box.exec()
@@ -173,8 +173,8 @@ class TasksPage(QWidget):
 
     def warn_not_running(self) -> None:
         InfoBar.info(
-            "Task không chạy",
-            "Task này hiện không chạy.",
+            "Task not running",
+            "This task is not currently running.",
             parent=self,
             position=InfoBarPosition.TOP,
         )

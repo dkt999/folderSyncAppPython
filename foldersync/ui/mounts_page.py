@@ -61,7 +61,7 @@ class PrivWorker(QObject):
         try:
             self.finished.emit(self._fn(self.log_line.emit))
         except Exception as exc:  # noqa: BLE001
-            self.finished.emit({"ok": False, "message": "Loi khong mong doi.", "detail": str(exc)})
+            self.finished.emit({"ok": False, "message": "Unexpected error.", "detail": str(exc)})
 
 
 class MountsPage(QWidget):
@@ -78,11 +78,12 @@ class MountsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 16, 24, 16)
         layout.setSpacing(12)
-        layout.addWidget(SubtitleLabel("Ổ đĩa mạng (SMB/CIFS)"))
+        layout.addWidget(SubtitleLabel("Network drive (SMB/CIFS)"))
         layout.addWidget(
             BodyLabel(
-                "Mount share mạng vào máy rồi dùng làm thư mục nguồn cho task đồng bộ. "
-                "Mọi entry fstab đều có 'nofail' nên nếu ổ mạng lỗi, máy vẫn khởi động bình thường."
+                "Mount a network share so it can be used as a sync source. "
+                "All fstab entries include 'nofail', so the system still boots normally "
+                "if the network drive fails."
             )
         )
 
@@ -91,7 +92,7 @@ class MountsPage(QWidget):
         list_layout = QVBoxLayout(list_card)
         self.table = TableWidget(self)
         self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Share", "Điểm mount", "Trạng thái", "fstab"])
+        self.table.setHorizontalHeaderLabels(["Share", "Mount point", "Status", "fstab"])
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(self.table.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(self.table.EditTrigger.NoEditTriggers)
@@ -100,7 +101,7 @@ class MountsPage(QWidget):
         header.setSectionResizeMode(1, header.ResizeMode.Stretch)
         list_layout.addWidget(self.table)
         refresh_row = QHBoxLayout()
-        refresh_btn = PushButton(FluentIcon.SYNC, "Làm mới")
+        refresh_btn = PushButton(FluentIcon.SYNC, "Refresh")
         refresh_btn.clicked.connect(self.refresh_table)
         refresh_row.addWidget(refresh_btn)
         refresh_row.addStretch(1)
@@ -115,13 +116,13 @@ class MountsPage(QWidget):
         row1 = QHBoxLayout()
         row1.addWidget(BodyLabel("Share:"))
         self.source_edit = LineEdit()
-        self.source_edit.setPlaceholderText("//192.168.1.10/du-lieu  (dán smb://... từ Files cũng được)")
+        self.source_edit.setPlaceholderText("//192.168.1.10/data  (you can also paste smb://... from Files)")
         self.source_edit.setClearButtonEnabled(True)
         row1.addWidget(self.source_edit, 1)
-        row1.addWidget(BodyLabel("Điểm mount:"))
+        row1.addWidget(BodyLabel("Mount point:"))
         row1.addWidget(BodyLabel("/mnt/"))  # prefix co dinh, khong can go
         self.target_edit = LineEdit()
-        self.target_edit.setPlaceholderText("VD: COM0068Share")
+        self.target_edit.setPlaceholderText("E.g.: COM0068Share")
         self.target_edit.setClearButtonEnabled(True)
         row1.addWidget(self.target_edit, 1)
         form.addLayout(row1)
@@ -129,31 +130,31 @@ class MountsPage(QWidget):
         row2 = QHBoxLayout()
         row2.addWidget(BodyLabel("User:"))
         self.user_edit = LineEdit()
-        self.user_edit.setPlaceholderText("tên đăng nhập share")
+        self.user_edit.setPlaceholderText("share username")
         row2.addWidget(self.user_edit, 1)
         row2.addWidget(BodyLabel("Pass:"))
         self.pass_edit = PasswordLineEdit()
-        self.pass_edit.setPlaceholderText("mật khẩu")
+        self.pass_edit.setPlaceholderText("password")
         row2.addWidget(self.pass_edit, 1)
         row2.addWidget(BodyLabel("Domain:"))
         self.domain_edit = LineEdit()
-        self.domain_edit.setPlaceholderText("(không bắt buộc)")
+        self.domain_edit.setPlaceholderText("(optional)")
         row2.addWidget(self.domain_edit, 1)
-        self.guest_check = CheckBox("Khách (guest)")
+        self.guest_check = CheckBox("Guest")
         self.guest_check.stateChanged.connect(self._on_guest_changed)
         row2.addWidget(self.guest_check)
         form.addLayout(row2)
 
         btn_row = QHBoxLayout()
-        self.test_btn = PrimaryPushButton(FluentIcon.PLAY, "1. Mount thử")
+        self.test_btn = PrimaryPushButton(FluentIcon.PLAY, "1. Test mount")
         self.test_btn.clicked.connect(self._on_test)
-        self.save_btn = PushButton(FluentIcon.SAVE, "2. Lưu vào fstab && mount")
+        self.save_btn = PushButton(FluentIcon.SAVE, "2. Save to fstab && mount")
         self.save_btn.clicked.connect(self._on_save)
-        self.verify_btn = PushButton(FluentIcon.CHECKBOX, "Kiểm tra fstab")
+        self.verify_btn = PushButton(FluentIcon.CHECKBOX, "Verify fstab")
         self.verify_btn.clicked.connect(self._on_verify)
-        self.umount_btn = PushButton("Gỡ mount")
+        self.umount_btn = PushButton("Unmount")
         self.umount_btn.clicked.connect(self._on_umount)
-        self.remove_btn = PushButton(FluentIcon.DELETE, "Xóa khỏi fstab")
+        self.remove_btn = PushButton(FluentIcon.DELETE, "Remove from fstab")
         self.remove_btn.clicked.connect(self._on_remove)
         for b in (self.test_btn, self.save_btn, self.verify_btn, self.umount_btn, self.remove_btn):
             btn_row.addWidget(b)
@@ -161,7 +162,7 @@ class MountsPage(QWidget):
         form.addLayout(btn_row)
         layout.addWidget(form_card)
 
-        layout.addWidget(BodyLabel("Nhật ký:"))
+        layout.addWidget(BodyLabel("Log:"))
         self.log_view = TextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setFont(QFont("monospace"))
@@ -215,9 +216,9 @@ class MountsPage(QWidget):
         if result.get("ok"):
             self._log("OK: " + (result.get("message") or done_msg))
         else:
-            self._log("LỖI: " + result.get("message", ""))
+            self._log("ERROR: " + result.get("message", ""))
             if result.get("detail"):
-                self._log("  Chi tiết: " + result["detail"])
+                self._log("  Detail: " + result["detail"])
         self.refresh_table()
 
     def _form_values(self) -> tuple[str, str, str, str, str, bool]:
@@ -234,11 +235,11 @@ class MountsPage(QWidget):
         source, target, username, _pw, _domain, guest = self._form_values()
         err = validate_source(source) or validate_target(target)
         if err:
-            InfoBar.warning("Thông tin chưa đúng", err, parent=self, position=InfoBarPosition.TOP)
+            InfoBar.warning("Invalid information", err, parent=self, position=InfoBarPosition.TOP)
             return None
         if not guest and not username:
             InfoBar.warning(
-                "Thiếu user", "Nhập username của share (hoặc tick Khách).",
+                "Missing username", "Enter the share username (or tick Guest).",
                 parent=self, position=InfoBarPosition.TOP,
             )
             return None
@@ -264,15 +265,15 @@ class MountsPage(QWidget):
         for row, e in enumerate(entries):
             self.table.setItem(row, 0, QTableWidgetItem(e.device))
             self.table.setItem(row, 1, QTableWidgetItem(e.mountpoint))
-            status = "Đã mount" if is_mounted(e.mountpoint) else "Chưa mount"
+            status = "Mounted" if is_mounted(e.mountpoint) else "Not mounted"
             self.table.setItem(row, 2, QTableWidgetItem(status))
-            safe = "An toàn (nofail)" if has_nofail(e.options) else "THIẾU nofail!"
+            safe = "Safe (nofail)" if has_nofail(e.options) else "MISSING nofail!"
             self.table.setItem(row, 3, QTableWidgetItem(safe))
 
     def _selected_target(self) -> str | None:
         rows = self.table.selectionModel().selectedRows()
         if not rows:
-            InfoBar.info("Chưa chọn", "Hãy chọn một dòng trong bảng.", parent=self,
+            InfoBar.info("Nothing selected", "Please select a row in the table.", parent=self,
                          position=InfoBarPosition.TOP)
             return None
         item = self.table.item(rows[0].row(), 1)
@@ -286,45 +287,47 @@ class MountsPage(QWidget):
         source, target, username, guest = vals
         _s, _t, _u, password, domain, _g = self._form_values()
         options, _line = self._build_options_and_line()
-        self._log(f"Mount thử {source} ...")
+        self._log(f"Test mounting {source} ...")
 
         def job(log) -> dict:
             # 0. Kiem tra ten may phan giai duoc khong — neu khong thi mount.cifs
             #    se treo rat lau. Dung bao loi som thay vi treo den.
             server = server_of(source)
-            log(f"→ Đang phân giải tên máy '{server}' ...")
+            log(f"→ Resolving hostname '{server}' ...")
             ip = resolve_server(server)
             if ip is None:
                 return {
                     "ok": False,
-                    "message": f"Không phân giải được tên máy '{server}'.",
+                    "message": f"Could not resolve hostname '{server}'.",
                     "detail": (
-                        "Files (Nautilus) tự dò máy trong mạng nên vẫn mở được smb://..., "
-                        "nhưng mount qua hệ thống cần tên phân giải được qua DNS. "
-                        "Hãy dùng địa chỉ IP thay cho tên máy, VD: //192.168.1.10/02. share"
+                        "Files (Nautilus) discovers machines on the network itself, so it can "
+                        "still open smb://..., but mounting via the system requires the name "
+                        "to resolve through DNS. Use the IP address instead of the hostname, "
+                        "e.g.: //192.168.1.10/02. share"
                     ),
                 }
-            log(f"→ {server} phân giải thành {ip}")
-            log("→ Đang kiểm tra port SMB (445) trên IP này...")
+            log(f"→ {server} resolved to {ip}")
+            log("→ Checking SMB port (445) on this IP...")
             if not check_smb_port(ip):
                 return {
                     "ok": False,
-                    "message": f"Phân giải được {server} thành {ip} nhưng không nối được port 445.",
+                    "message": f"Resolved {server} to {ip} but could not connect to port 445.",
                     "detail": (
-                        "IP này có thể không phải máy chủ thật: DNS hệ thống trả về IP "
-                        "khác với IP mà Files (Nautilus) tìm thấy qua NetBIOS. Hãy kiểm "
-                        "tra IP thật của máy chủ (chạy 'ipconfig' trên máy đó, hoặc "
-                        "'nmblookup com0068' trên máy này) rồi dùng IP thay cho tên máy."
+                        "This IP may not be the real server: the system DNS returned an IP "
+                        "different from the one Files (Nautilus) found via NetBIOS. Check the "
+                        "server's real IP (run 'ipconfig' on that machine, or "
+                        "'nmblookup com0068' on this machine) and use the IP instead of "
+                        "the hostname."
                     ),
                 }
-            log("→ Port 445 mở, tiếp tục.")
+            log("→ Port 445 is open, continuing.")
             # Dung IP thay cho ten may de kernel khong can tu phan giai DNS
             # (kernel phan giai theo cach rieng, co the khac DNS cua app).
             mount_source = source_with_ip(source, ip)
             if mount_source != source:
-                log(f"→ Dùng IP để mount: {mount_source}")
+                log(f"→ Mounting via IP: {mount_source}")
             if not guest:
-                log("→ Đang xin quyền root để lưu credentials (có thể hiện hộp thoại mật khẩu)...")
+                log("→ Requesting root privileges to save credentials (a password prompt may appear)...")
                 r = run_privileged(
                     ["write-credentials", "--path", str(credentials_path_for(target)),
                      "--username", username, "--domain", domain],
@@ -332,8 +335,8 @@ class MountsPage(QWidget):
                 )
                 if not r.get("ok"):
                     return r
-                log("→ Đã lưu credentials.")
-            log("→ Đang mount thử (chờ tối đa 60 giây)...")
+                log("→ Credentials saved.")
+            log("→ Test mounting (waiting up to 60 seconds)...")
             r = run_privileged(["test-mount", "--source", mount_source, "--options", options])
             if r.get("ok"):
                 r["ip"] = ip  # de _on_save dung lai IP da verify
@@ -344,7 +347,7 @@ class MountsPage(QWidget):
             if result.get("ok"):
                 self._tested_key = self._current_key()
                 self._tested_ip = result.get("ip")
-                self._log("→ Mount thử OK. Giờ có thể bấm [2. Lưu vào fstab & mount].")
+                self._log("→ Test mount OK. You can now click [2. Save to fstab & mount].")
 
         self._run_priv(job, done)
 
@@ -355,8 +358,8 @@ class MountsPage(QWidget):
         source, target, username, guest = vals
         if self._tested_key != self._current_key():
             InfoBar.warning(
-                "Chưa mount thử",
-                "Hãy bấm [1. Mount thử] thành công trước khi lưu vào fstab.",
+                "Not test-mounted yet",
+                "Please complete a successful [1. Test mount] before saving to fstab.",
                 parent=self, position=InfoBarPosition.TOP,
             )
             return
@@ -365,19 +368,19 @@ class MountsPage(QWidget):
         # nhat la khi boot (Tailscale MagicDNS co the chua san sang).
         mount_source = source_with_ip(source, self._tested_ip) if self._tested_ip else source
         options, line = self._build_options_and_line(mount_source)
-        self._log(f"Dòng fstab sẽ thêm:\n  {line}")
-        self._log("Đang lưu (có backup + kiểm tra cú pháp)...")
+        self._log(f"fstab line to be added:\n  {line}")
+        self._log("Saving (with backup + syntax check)...")
 
         def job(log) -> dict:
             def step(cmd: list[str], stdin_text: str | None = None) -> dict | None:
                 r = run_privileged(cmd, stdin_text=stdin_text)
                 log(("✓ " if r.get("ok") else "✗ ") + r.get("message", ""))
                 if r.get("detail"):
-                    log("  Chi tiết: " + r["detail"])
+                    log("  Detail: " + r["detail"])
                 return None if r.get("ok") else r
 
             if not guest:
-                log("→ Đang xin quyền root để lưu credentials...")
+                log("→ Requesting root privileges to save credentials...")
                 failed = step(
                     ["write-credentials", "--path", str(credentials_path_for(target)),
                      "--username", username, "--domain", domain],
@@ -385,21 +388,21 @@ class MountsPage(QWidget):
                 )
                 if failed:
                     return failed
-            log("→ Đang tạo điểm mount...")
+            log("→ Creating mount point...")
             failed = step(["ensure-mountpoint", "--target", target])
             if failed:
                 return failed
-            log("→ Đang ghi fstab (có backup)...")
+            log("→ Writing fstab (with backup)...")
             failed = step(["fstab-add", "--line", line])
             if failed:
                 return failed
-            log("→ Đang mount...")
+            log("→ Mounting...")
             return run_privileged(["mount-target", "--target", target])
 
-        self._run_priv(job, lambda r: self._on_priv_done(r, "Hoàn tất: đã lưu fstab và mount."))
+        self._run_priv(job, lambda r: self._on_priv_done(r, "Done: fstab saved and mounted."))
 
     def _on_verify(self) -> None:
-        self._log("Kiểm tra cú pháp /etc/fstab ...")
+        self._log("Checking /etc/fstab syntax ...")
         self._run_priv(
             lambda log: run_privileged(["fstab-verify"]),
             lambda r: self._on_priv_done(r),
@@ -409,7 +412,7 @@ class MountsPage(QWidget):
         target = self._selected_target()
         if target is None:
             return
-        self._log(f"Gỡ mount {target} ...")
+        self._log(f"Unmounting {target} ...")
         self._run_priv(
             lambda log: run_privileged(["umount-target", "--target", target]),
             lambda r: self._on_priv_done(r),
@@ -421,10 +424,10 @@ class MountsPage(QWidget):
             return
         entries = parse_fstab()
         if find_entry(entries, target=target) is None:
-            InfoBar.info("Không có", "Dòng này không còn trong fstab.", parent=self,
+            InfoBar.info("Not found", "This entry is no longer in fstab.", parent=self,
                          position=InfoBarPosition.TOP)
             return
-        self._log(f"Xóa {target} khỏi fstab (có backup)...")
+        self._log(f"Removing {target} from fstab (with backup)...")
         self._run_priv(
             lambda log: run_privileged(["fstab-remove", "--target", target]),
             lambda r: self._on_priv_done(r),

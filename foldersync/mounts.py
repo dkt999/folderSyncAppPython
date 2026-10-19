@@ -112,17 +112,17 @@ def validate_source(source: str) -> str | None:
     nguoc lai tra ve thong bao loi tieng Viet."""
     s = normalize_source(source)
     if not s.startswith("//"):
-        return 'Dia chi share phai bat dau bang "//", VD: //192.168.1.10/du-lieu'
+        return 'Share address must start with "//", e.g.: //192.168.1.10/data'
     rest = s[2:]
     if "/" not in rest:
-        return 'Thieu ten share, VD: //192.168.1.10/du-lieu'
+        return 'Missing share name, e.g.: //192.168.1.10/data'
     server, share = rest.split("/", 1)
     if not server or not share or "/" in share:
-        return 'Dinh dang phai la //server/share (khong them duong dan con)'
+        return 'Format must be //server/share (no sub-paths)'
     if not re.fullmatch(r"[A-Za-z0-9_.\-]+", server):
-        return f'Ten server/IP "{server}" co ky tu khong hop le'
+        return f'Server name/IP "{server}" contains invalid characters'
     if not re.fullmatch(r"[^/\\\\]+", share):
-        return f'Ten share "{share}" khong hop le'
+        return f'Share name "{share}" is invalid'
     return None
 
 
@@ -130,11 +130,11 @@ def validate_target(target: str) -> str | None:
     # target da qua normalize_target -> luon dang '/mnt/<ten>' hoac rong.
     t = target.strip()
     if not t:
-        return "Nhap ten diem mount, VD: COM0068Share"
+        return "Enter a mount point name, e.g.: COM0068Share"
     if not t.startswith("/"):
-        return "Diem mount phai la duong dan tuyet doi, VD: /mnt/du-lieu"
+        return "Mount point must be an absolute path, e.g.: /mnt/data"
     if t in ("/", "/etc", "/bin", "/usr", "/var", "/home", "/root", "/boot"):
-        return f'Khong duoc mount de len thu muc he thong "{t}"'
+        return f'Cannot mount over system directory "{t}"'
     # Dau cach o diem mount duoc chap nhan - luc ghi fstab se tu escape \040.
     return None
 

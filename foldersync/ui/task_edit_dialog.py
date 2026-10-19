@@ -23,7 +23,7 @@ from ..models import BackupTask
 class TaskEditDialog(QDialog):
     def __init__(self, existing: BackupTask | None, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Thêm task mới" if existing is None else "Sửa task")
+        self.setWindowTitle("Add new task" if existing is None else "Edit task")
         self.setMinimumWidth(520)
 
         # Giong C#: tao Result moi, giu lai Id + thong tin lan chay cu khi sua.
@@ -42,11 +42,11 @@ class TaskEditDialog(QDialog):
         layout.addWidget(SubtitleLabel(self.windowTitle()))
 
         self.name_edit = LineEdit()
-        self.name_edit.setPlaceholderText("Tên task")
-        layout.addWidget(BodyLabel("Tên task:"))
+        self.name_edit.setPlaceholderText("Task name")
+        layout.addWidget(BodyLabel("Task name:"))
         layout.addWidget(self.name_edit)
 
-        layout.addWidget(BodyLabel("Nguồn:"))
+        layout.addWidget(BodyLabel("Source:"))
         src_row = QHBoxLayout()
         self.src_edit = LineEdit()
         self.src_edit.setClearButtonEnabled(True)
@@ -56,7 +56,7 @@ class TaskEditDialog(QDialog):
         src_row.addWidget(src_browse)
         layout.addLayout(src_row)
 
-        layout.addWidget(BodyLabel("Đích:"))
+        layout.addWidget(BodyLabel("Destination:"))
         dst_row = QHBoxLayout()
         self.dst_edit = LineEdit()
         self.dst_edit.setClearButtonEnabled(True)
@@ -66,19 +66,19 @@ class TaskEditDialog(QDialog):
         dst_row.addWidget(dst_browse)
         layout.addLayout(dst_row)
 
-        self.mirror_check = CheckBox("Xóa file thừa ở đích (mirror)")
+        self.mirror_check = CheckBox("Delete extra files at destination (mirror)")
         layout.addWidget(self.mirror_check)
 
-        layout.addWidget(BodyLabel("Giờ chạy mỗi ngày:"))
+        layout.addWidget(BodyLabel("Run times (daily):"))
         time_row = QHBoxLayout()
         self.time_edit = TimeEdit()
         self.time_edit.setDisplayFormat("HH:mm")
         self.time_edit.setTime(QTime.currentTime())
         time_row.addWidget(self.time_edit)
-        add_btn = PushButton(FluentIcon.ADD, "Thêm giờ")
+        add_btn = PushButton(FluentIcon.ADD, "Add time")
         add_btn.clicked.connect(self._add_time)
         time_row.addWidget(add_btn)
-        remove_btn = PushButton(FluentIcon.REMOVE, "Xóa")
+        remove_btn = PushButton(FluentIcon.REMOVE, "Remove")
         remove_btn.clicked.connect(self._remove_time)
         time_row.addWidget(remove_btn)
         time_row.addStretch(1)
@@ -90,9 +90,9 @@ class TaskEditDialog(QDialog):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
-        close_btn = PushButton("Đóng")
+        close_btn = PushButton("Close")
         close_btn.clicked.connect(self.reject)
-        save_btn = PrimaryPushButton("Lưu")
+        save_btn = PrimaryPushButton("Save")
         save_btn.clicked.connect(self._on_save)
         btn_row.addWidget(close_btn)
         btn_row.addWidget(save_btn)
@@ -107,7 +107,7 @@ class TaskEditDialog(QDialog):
                 self.times_list.addItem(t)
 
     def _browse(self, target: LineEdit) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Chọn thư mục", target.text())
+        path = QFileDialog.getExistingDirectory(self, "Select folder", target.text())
         if path:
             target.setText(path)
 
@@ -127,7 +127,7 @@ class TaskEditDialog(QDialog):
             self.times_list.takeItem(self.times_list.row(item))
 
     def _on_save(self) -> None:
-        self.result_task.name = self.name_edit.text().strip() or "Task backup"
+        self.result_task.name = self.name_edit.text().strip() or "Backup task"
         self.result_task.source = self.src_edit.text().strip()
         self.result_task.destination = self.dst_edit.text().strip()
         self.result_task.mirror = self.mirror_check.isChecked()

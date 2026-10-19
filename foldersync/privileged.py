@@ -31,15 +31,15 @@ def _run(cmd: list[str], timeout: int = MOUNT_TIMEOUT) -> tuple[int, str, str]:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
     except subprocess.TimeoutExpired:
-        return 124, "", f"Het thoi gian cho ({timeout}s) - server khong phan hoi"
+        return 124, "", f"Timed out after {timeout}s - server not responding"
 
 def _require_cifs_helper() -> dict | None:
     if shutil.which("mount.cifs"):
         return None
     return _result(
         False,
-        "Chưa cài cifs-utils (thiếu mount.cifs).",
-        "Chạy: sudo apt install cifs-utils",
+        "cifs-utils is not installed (mount.cifs missing).",
+        "Run: sudo apt install cifs-utils",
     )
 # ---------------------------------------------------------------- test mount
 def test_mount(source: str, options: str) -> dict:
@@ -52,14 +52,14 @@ def test_mount(source: str, options: str) -> dict:
     try:
         code, _out, err = _run(["mount", "-t", "cifs", source, tmpdir, "-o", options])
         if code != 0:
-            return _result(False, "Mount thu that bai.", _mount_error_detail(err))
+            return _result(False, "Test mount failed.", _mount_error_detail(err))
         try:
             if not os.path.ismount(tmpdir):
-                return _result(False, "Mount thu that bai (khong thay diem mount).", err)
+                return _result(False, "Test mount failed (mount point not found).", err)
             os.listdir(tmpdir)  # doc thu de chac chan share truy cap duoc
         except OSError as exc:
-            return _result(False, "Mount duoc nhung khong doc duoc share.", str(exc))
-        return _result(True, "Mount thu thanh cong, doc duoc share.")
+            return _result(False, "Mounted but could not read the share.", str(exc))
+        return _result(True, "Test mount succeeded, share is readable.")
     finally:
         subprocess.run(["umount", tmpdir], capture_output=True, timeout=30)
         try:
@@ -71,14 +71,14 @@ def test_mount(source: str, options: str) -> dict:
 def _friendly_mount_error(stderr: str) -> str:
     s = stderr.lower()
     if "permission denied" in s or "13" in s.split():
-        return "Sai username/password hoac khong co quyen truy cap share."
+        return "Wrong username/password or no permission to access the share."
     if "no such device" in s:
-        return "Thieu goi cifs-utils (can cai: sudo apt install cifs-utils)."
+        return "Missing cifs-utils package (install with: sudo apt install cifs-utils)."
     if "host is down" in s or "no route to host" in s or "connection refused" in s:
-        return "Khong ket noi duoc toi server (sai dia chi hoac server tat/firewall)."
+        return "Could not connect to the server (wrong address, or server off/firewalled)."
     if "no such file or directory" in s:
-        return "Ten share khong ton tai tren server."
-    return stderr or "Khong ro nguyen nhan."
+        return "Share name does not exist on the server."
+    return stderr or "Unknown cause."
 
 
 def _mount_error_detail(err: str) -> str:
@@ -86,7 +86,7 @@ def _mount_error_detail(err: str) -> str:
     friendly = _friendly_mount_error(err)
     raw = (err or "").strip()
     if raw and raw not in friendly:
-        return f"{friendly}\nLỗi gốc: {raw}"
+        return f"{friendly}\nOriginal error: {raw}"
     return friendly
 
 
@@ -102,16 +102,16 @@ def _strict_check_line(line: str) -> str | None:
     """Kiem tra chat che dong fstab do chinh app sinh ra. None = hop le."""
     parts = line.split()
     if len(parts) != 6:
-        return f"Dong fstab phai co dung 6 truong, dang co {len(parts)}."
+        return f"fstab line must have exactly 6 fields, found {len(parts)}."
     device, target, fstype, _opts, dump, fsck = parts
     if not device.startswith("//"):
-        return "Device phai dang //server/share."
+        return "Device must look like //server/share."
     if not target.startswith("/"):
-        return "Diem mount phai la duong dan tuyet doi."
+        return "Mount point must be an absolute path."
     if fstype != "cifs":
-        return "Fstype phai la cifs."
+        return "Fstype must be cifs."
     if dump not in ("0", "1") or fsck not in ("0", "1", "2"):
-        return "Truong dump/fsck khong hop le."
+        return "Invalid dump/fsck fields."
     return None
 
 
@@ -129,24 +129,24 @@ def fstab_add(line: str, fstab: Path = FSTAB_PATH) -> dict:
     # 1. Kiem tra chat che dong do chinh app sinh ra, TRUOC khi dung den fstab.
     err = _strict_check_line(line)
     if err:
-        return _result(False, "Dong fstab khong hop le: " + err)
+        return _result(False, "Invalid fstab line: " + err)
     target = line.split()[1]
 
     entries_before = parse_fstab(fstab)
     if any(e.mountpoint == target for e in entries_before):
-        return _result(False, f'Da co dong fstab cho diem mount "{target}". Hay xoa truoc.')
+        return _result(False, f'fstab already has an entry for mount point "{target}". Remove it first.')
 
     try:
         backup = _backup_fstab(fstab)
     except OSError as exc:
-        return _result(False, "Khong backup duoc /etc/fstab.", str(exc))
+        return _result(False, "Could not back up /etc/fstab.", str(exc))
 
     # 2. Ghi append (luon bat dau bang \n de khong dinh vao dong cuoi cu).
     try:
         with fstab.open("a", encoding="utf-8") as f:
-            f.write(f"\n# FolderSync: mount o dia mang tu dong\n{line}\n")
+            f.write(f"\n# FolderSync: auto-mount network drive\n{line}\n")
     except OSError as exc:
-        return _result(False, "Khong ghi duoc /etc/fstab.", str(exc))
+        return _result(False, "Could not write to /etc/fstab.", str(exc))
 
     # 3. Doc lai va doi chieu: phai tang dung 1 entry va tim thay target.
     #    Neu file bi ghi loi (VD: dinh dong), khoi phuc backup ngay.
@@ -157,21 +157,21 @@ def fstab_add(line: str, fstab: Path = FSTAB_PATH) -> dict:
         shutil.copy2(backup, fstab)
         return _result(
             False,
-            "Ghi fstab that bai (file sau khi ghi khong nhu mong doi) - da khoi phuc ban cu.",
+            "Failed to write fstab (file after writing is not as expected) - restored the previous version.",
         )
     info = _findmnt_info(fstab)
-    msg = f"Da them vao fstab (backup: {backup.name})."
+    msg = f"Added to fstab (backup: {backup.name})."
     return _result(True, msg, info)
 
 
 def fstab_remove(target: str, fstab: Path = FSTAB_PATH) -> dict:
     entries = parse_fstab(fstab)
     if not any(e.mountpoint == target for e in entries):
-        return _result(False, f'Khong tim thay dong fstab cho "{target}".')
+        return _result(False, f'No fstab entry found for "{target}".')
     try:
         backup = _backup_fstab(fstab)
     except OSError as exc:
-        return _result(False, "Khong backup duoc /etc/fstab.", str(exc))
+        return _result(False, "Could not back up /etc/fstab.", str(exc))
 
     try:
         lines = fstab.read_text(encoding="utf-8").splitlines()
@@ -183,7 +183,7 @@ def fstab_remove(target: str, fstab: Path = FSTAB_PATH) -> dict:
             kept.append(ln)
         fstab.write_text("\n".join(kept) + "\n", encoding="utf-8")
     except OSError as exc:
-        return _result(False, "Khong ghi duoc /etc/fstab.", str(exc))
+        return _result(False, "Could not write to /etc/fstab.", str(exc))
 
     # Doi chieu: so entry phai giam dung 1 va khong con target.
     from .mounts import find_entry as _find  # noqa: PLC0415
@@ -191,8 +191,8 @@ def fstab_remove(target: str, fstab: Path = FSTAB_PATH) -> dict:
     entries_after = parse_fstab(fstab)
     if len(entries_after) != len(entries) - 1 or _find(entries_after, target=target) is not None:
         shutil.copy2(backup, fstab)
-        return _result(False, "Loi sau khi xoa - da khoi phuc ban cu.")
-    return _result(True, f"Da xoa khoi fstab (backup: {backup.name}).")
+        return _result(False, "Error after removal - restored the previous version.")
+    return _result(True, f"Removed from fstab (backup: {backup.name}).")
 
 
 def fstab_verify(fstab: Path = FSTAB_PATH) -> dict:
@@ -202,7 +202,7 @@ def fstab_verify(fstab: Path = FSTAB_PATH) -> dict:
     try:
         lines = fstab.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
-        return _result(False, "Khong doc duoc /etc/fstab.", str(exc))
+        return _result(False, "Could not read /etc/fstab.", str(exc))
     bad = [
         (i + 1, ln)
         for i, ln in enumerate(lines)
@@ -210,11 +210,11 @@ def fstab_verify(fstab: Path = FSTAB_PATH) -> dict:
     ]
     info = _findmnt_info(fstab)
     if bad:
-        detail = "\n".join(f"dong {n}: {ln}" for n, ln in bad)
+        detail = "\n".join(f"line {n}: {ln}" for n, ln in bad)
         if info:
             detail += "\n--- findmnt --verify ---\n" + info
-        return _result(False, f"Phat hien {len(bad)} dong loi cu phap trong fstab!", detail)
-    msg = "Khong phat hien loi cu phap trong /etc/fstab."
+        return _result(False, f"Found {len(bad)} syntax error(s) in fstab!", detail)
+    msg = "No syntax errors found in /etc/fstab."
     return _result(True, msg, info)
 
 
@@ -222,9 +222,9 @@ def fstab_verify(fstab: Path = FSTAB_PATH) -> dict:
 def ensure_mountpoint(target: str) -> dict:
     try:
         Path(target).mkdir(parents=True, exist_ok=True)
-        return _result(True, f"Da tao diem mount {target}.")
+        return _result(True, f"Created mount point {target}.")
     except OSError as exc:
-        return _result(False, f"Khong tao duoc diem mount {target}.", str(exc))
+        return _result(False, f"Could not create mount point {target}.", str(exc))
 
 
 def mount_target(target: str) -> dict:
@@ -232,19 +232,19 @@ def mount_target(target: str) -> dict:
     if code != 0:
         # mount khong bao loi neu da mount roi? -> kiem tra ismount cho chac.
         if not os.path.ismount(target):
-            return _result(False, f"Khong mount duoc {target}.", _mount_error_detail(err))
+            return _result(False, f"Could not mount {target}.", _mount_error_detail(err))
     if os.path.ismount(target):
-        return _result(True, f"Da mount {target}.")
-    return _result(False, f"Khong mount duoc {target}.", _mount_error_detail(err))
+        return _result(True, f"Mounted {target}.")
+    return _result(False, f"Could not mount {target}.", _mount_error_detail(err))
 
 
 def umount_target(target: str) -> dict:
     if not os.path.ismount(target):
-        return _result(True, f"{target} hien khong duoc mount.")
+        return _result(True, f"{target} is not currently mounted.")
     code, _out, err = _run(["umount", target])
     if code != 0:
-        return _result(False, f"Khong go duoc {target} (co the dang duoc su dung).", err)
-    return _result(True, f"Da go mount {target}.")
+        return _result(False, f"Could not unmount {target} (it may be in use).", err)
+    return _result(True, f"Unmounted {target}.")
 
 
 # ---------------------------------------------------------------- credentials
@@ -265,9 +265,9 @@ def write_credentials(path: str, username: str, password: str, domain: str = "")
         os.chmod(tmp, 0o600)
         tmp.replace(cred)
         os.chmod(cred, 0o600)
-        return _result(True, f"Da luu credentials (quyen 600) tai {cred}.")
+        return _result(True, f"Saved credentials (mode 600) at {cred}.")
     except OSError as exc:
-        return _result(False, "Khong luu duoc file credentials.", str(exc))
+        return _result(False, "Could not save the credentials file.", str(exc))
 
 
 # ---------------------------------------------------------------- CLI
@@ -302,7 +302,7 @@ def _cmd_umount_target(ns: argparse.Namespace) -> dict:
 def _cmd_write_credentials(ns: argparse.Namespace) -> dict:
     password = sys.stdin.read().strip()
     if not password:
-        return _result(False, "Mat khau rong.")
+        return _result(False, "Empty password.")
     return write_credentials(ns.path, ns.username, password, ns.domain or "")
 
 
@@ -356,7 +356,7 @@ def run_privileged(args: list[str], stdin_text: str | None = None, timeout: int 
     cmd = [sys.executable, "-m", "foldersync.privileged", *args]
     if os.geteuid() != 0:
         if not shutil.which("pkexec"):
-            return _result(False, "Khong tim thay pkexec de xin quyen root.")
+            return _result(False, "pkexec not found; cannot request root privileges.")
         # pkexec khong dam bao giu thu muc hien tai -> python -m se khong
         # tim thay module foldersync. Set PYTHONPATH tuyet doi qua env
         # de chac chan, bat ke pkexec doi cwd thanh gi.
@@ -370,21 +370,21 @@ def run_privileged(args: list[str], stdin_text: str | None = None, timeout: int 
             cwd=str(app_root), timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        return _result(False, "Het thoi gian cho thao tac.")
+        return _result(False, "Operation timed out.")
     except OSError as exc:
-        return _result(False, "Khong chay duoc lenh.", str(exc))
+        return _result(False, "Could not run the command.", str(exc))
 
     # pkexec co the bi huy boi nguoi dung -> stdout rong.
     stdout = (proc.stdout or "").strip()
     if not stdout:
         err = (proc.stderr or "").strip()
         if proc.returncode == 127:
-            return _result(False, "Nguoi dung da huy xac thuc (khong co quyen root).")
-        return _result(False, "Lenh khong tra ve ket qua.", err)
+            return _result(False, "Authentication was cancelled by the user (no root privileges).")
+        return _result(False, "The command returned no result.", err)
     try:
         return json.loads(stdout.splitlines()[-1])
     except (json.JSONDecodeError, IndexError):
-        return _result(False, "Ket qua tra ve khong hop le.", stdout[-500:])
+        return _result(False, "The returned result is invalid.", stdout[-500:])
 
 
 def main(argv: list[str] | None = None) -> int:

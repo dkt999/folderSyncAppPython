@@ -17,33 +17,33 @@ class SettingsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 16, 24, 16)
         layout.setSpacing(12)
-        layout.addWidget(SubtitleLabel("Cài đặt"))
+        layout.addWidget(SubtitleLabel("Settings"))
 
         card = CardWidget(self)
         card_layout = QVBoxLayout(card)
         card_layout.setSpacing(10)
 
-        self.autostart_switch = SwitchButton("Tự khởi động cùng hệ thống")
+        self.autostart_switch = SwitchButton("Start automatically with the system")
         self.autostart_switch.setChecked(is_autostart_enabled())
         self.autostart_switch.checkedChanged.connect(self._on_autostart_changed)
         card_layout.addWidget(self.autostart_switch)
 
         card_layout.addWidget(
             BodyLabel(
-                "Khi bật, app sẽ tự chạy ẩn xuống khay hệ thống mỗi lần đăng nhập."
+                "When enabled, the app will start minimized to the system tray on login."
             )
         )
         layout.addWidget(card)
 
         info_card = CardWidget(self)
         info_layout = QVBoxLayout(info_card)
-        info_layout.addWidget(BodyLabel(f"FolderSync v{__version__} - bản port Python/Qt của FolderSyncApp (C#)"))
-        info_layout.addWidget(BodyLabel(f"File task: {TASKS_FILE}"))
+        info_layout.addWidget(BodyLabel(f"FolderSync v{__version__} - Python/Qt port of FolderSyncApp (C#)"))
+        info_layout.addWidget(BodyLabel(f"Task file: {TASKS_FILE}"))
         info_layout.addWidget(
             BodyLabel(
-                "Ổ đĩa mạng: hãy mount thư mục chia sẻ vào hệ thống trước "
-                "(VD: qua Files > smb://... hoặc dòng cifs trong /etc/fstab), "
-                "rồi chọn đường dẫn đã mount làm thư mục nguồn."
+                "Network drive: mount the shared folder on the system first "
+                "(e.g. via Files > smb://... or a cifs entry in /etc/fstab), "
+                "then select the mounted path as the sync source."
             )
         )
         layout.addWidget(info_card)

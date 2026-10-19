@@ -36,7 +36,7 @@ class ManualPage(QWidget):
         layout.setContentsMargins(24, 16, 24, 16)
         layout.setSpacing(12)
 
-        layout.addWidget(SubtitleLabel("Đồng bộ thủ công"))
+        layout.addWidget(SubtitleLabel("Manual sync"))
 
         card = CardWidget(self)
         card_layout = QVBoxLayout(card)
@@ -44,9 +44,9 @@ class ManualPage(QWidget):
 
         # --- nguon ---
         src_row = QHBoxLayout()
-        src_row.addWidget(BodyLabel("Nguồn:"))
+        src_row.addWidget(BodyLabel("Source:"))
         self.src_edit = LineEdit()
-        self.src_edit.setPlaceholderText("VD: /mnt/du-lieu-chung  (ổ đĩa mạng đã mount)")
+        self.src_edit.setPlaceholderText("E.g.: /mnt/shared-data  (mounted network drive)")
         self.src_edit.setClearButtonEnabled(True)
         src_row.addWidget(self.src_edit, 1)
         src_browse = ToolButton(FluentIcon.FOLDER)
@@ -56,9 +56,9 @@ class ManualPage(QWidget):
 
         # --- dich ---
         dst_row = QHBoxLayout()
-        dst_row.addWidget(BodyLabel("Đích:  "))
+        dst_row.addWidget(BodyLabel("Dest:   "))
         self.dst_edit = LineEdit()
-        self.dst_edit.setPlaceholderText("VD: /home/user/backup")
+        self.dst_edit.setPlaceholderText("E.g.: /home/user/backup")
         self.dst_edit.setClearButtonEnabled(True)
         dst_row.addWidget(self.dst_edit, 1)
         dst_browse = ToolButton(FluentIcon.FOLDER)
@@ -66,14 +66,14 @@ class ManualPage(QWidget):
         dst_row.addWidget(dst_browse)
         card_layout.addLayout(dst_row)
 
-        self.mirror_check = CheckBox("Xóa file thừa ở đích (mirror)")
+        self.mirror_check = CheckBox("Delete extra files at destination (mirror)")
         card_layout.addWidget(self.mirror_check)
 
         # --- nut chay/huy ---
         btn_row = QHBoxLayout()
-        self.start_btn = PrimaryPushButton(FluentIcon.PLAY, "Bắt đầu")
+        self.start_btn = PrimaryPushButton(FluentIcon.PLAY, "Start")
         self.start_btn.clicked.connect(self._on_start)
-        self.cancel_btn = PushButton(FluentIcon.CANCEL, "Hủy")
+        self.cancel_btn = PushButton(FluentIcon.CANCEL, "Cancel")
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self._on_cancel)
         btn_row.addWidget(self.start_btn)
@@ -87,7 +87,7 @@ class ManualPage(QWidget):
 
         layout.addWidget(card)
 
-        layout.addWidget(BodyLabel("Nhật ký:"))
+        layout.addWidget(BodyLabel("Log:"))
         self.log_view = TextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setFont(QFont("monospace"))
@@ -95,7 +95,7 @@ class ManualPage(QWidget):
 
     # -- ui helpers ---------------------------------------------------
     def _browse(self, target: LineEdit) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Chọn thư mục", target.text())
+        path = QFileDialog.getExistingDirectory(self, "Select folder", target.text())
         if path:
             target.setText(path)
 
@@ -115,8 +115,8 @@ class ManualPage(QWidget):
         dest = self.dst_edit.text().strip()
         if not source or not dest:
             InfoBar.warning(
-                "Thiếu thông tin",
-                "Vui lòng nhập cả thư mục nguồn và thư mục đích.",
+                "Missing information",
+                "Please enter both the source and destination folders.",
                 parent=self,
                 position=InfoBarPosition.TOP,
             )
@@ -140,7 +140,7 @@ class ManualPage(QWidget):
 
     def _on_cancel(self) -> None:
         if self._worker is not None:
-            self._append_log("Đang hủy...")
+            self._append_log("Cancelling...")
             self._worker.cancel()
 
     def _on_finished(self, result: dict) -> None:
@@ -151,12 +151,12 @@ class ManualPage(QWidget):
 
         self._append_log("")
         if result["cancelled"]:
-            self._append_log("Đã hủy bởi người dùng.")
+            self._append_log("Cancelled by user.")
         elif result["error"]:
-            self._append_log("Lỗi: " + result["error"])
+            self._append_log("Error: " + result["error"])
         else:
             code = result["exit_code"]
             if result["success"]:
-                self._append_log(f"Hoàn tất. (rsync exit code: {code})")
+                self._append_log(f"Done. (rsync exit code: {code})")
             else:
-                self._append_log(f"Có lỗi xảy ra! Xem log bên trên. (rsync exit code: {code})")
+                self._append_log(f"An error occurred! See the log above. (rsync exit code: {code})")

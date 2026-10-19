@@ -49,10 +49,10 @@ class MainWindow(FluentWindow):
         self.mounts_page = MountsPage(self)
         self.mounts_page.setObjectName("mountsPage")
 
-        self.addSubInterface(self.manual_page, FluentIcon.SYNC, "Đồng bộ thủ công")
-        self.addSubInterface(self.tasks_page, FluentIcon.CALENDAR, "Task hẹn giờ")
-        self.addSubInterface(self.mounts_page, FluentIcon.SHARE, "Ổ đĩa mạng")
-        self.addSubInterface(self.settings_page, FluentIcon.SETTING, "Cài đặt")
+        self.addSubInterface(self.manual_page, FluentIcon.SYNC, "Manual sync")
+        self.addSubInterface(self.tasks_page, FluentIcon.CALENDAR, "Scheduled tasks")
+        self.addSubInterface(self.mounts_page, FluentIcon.SHARE, "Network drive")
+        self.addSubInterface(self.settings_page, FluentIcon.SETTING, "Settings")
 
         # -- noi cac su kien cua trang task --
         self.tasks_page.add_requested.connect(self._on_add_task)
@@ -80,8 +80,8 @@ class MainWindow(FluentWindow):
             return
         if not new_task.source or not new_task.destination:
             InfoBar.warning(
-                "Thiếu thông tin",
-                "Vui lòng nhập cả thư mục nguồn và thư mục đích.",
+                "Missing information",
+                "Please enter both the source and destination folders.",
                 parent=self,
                 position=InfoBarPosition.TOP,
             )
@@ -140,9 +140,9 @@ class MainWindow(FluentWindow):
         self._tray.setToolTip("Folder Sync")
 
         menu = QMenu()
-        show_action = QAction("Hiện", self)
+        show_action = QAction("Show", self)
         show_action.triggered.connect(self._show_window)
-        exit_action = QAction("Thoát", self)
+        exit_action = QAction("Quit", self)
         exit_action.triggered.connect(self._quit)
         menu.addAction(show_action)
         menu.addAction(exit_action)
@@ -171,7 +171,7 @@ class MainWindow(FluentWindow):
             if self._tray is not None:
                 self._tray.showMessage(
                     "Folder Sync",
-                    "Ứng dụng vẫn đang chạy nền.",
+                    "The app is still running in the background.",
                     QSystemTrayIcon.MessageIcon.Information,
                     3000,
                 )
