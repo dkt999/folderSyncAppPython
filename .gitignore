@@ -1,3 +1,10 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Build artifacts
+packaging/*.deb
+packaging/deb/foldersync_*_amd64/
+
+# Wheels tai ve khi build (80MB, khong commit)
+packaging/deb/wheels/*.whl
