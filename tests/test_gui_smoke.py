@@ -1,5 +1,6 @@
 """Smoke test GUI offscreen: QT_QPA_PLATFORM=offscreen python3 -m pytest tests/test_gui_smoke.py -q"""
 import os
+import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -96,6 +97,43 @@ def test_mounts_page_target_name_only(qapp):
     page.target_edit.setText("")
     assert page._validate_form() is None
     page.deleteLater()
+
+
+def test_run_priv_worker_survives_after_return(qapp):
+    """Regression: worker phai chay du _run_priv da return.
+    Bug cu: worker chi la bien local -> Python GC huy ngay khi ham return,
+    signal started ban vao khoang khong -> khong co log, nut treo vi disabled."""
+    page = MountsPage()
+    calls = []
+
+    def job(log):
+        log("hello from worker")
+        calls.append("job")
+        return {"ok": True, "message": "xong"}
+
+    page._run_priv(job, page._on_priv_done)
+    # _run_priv da return; worker chi song duoc nho self._worker.
+    assert page._worker is not None
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        qapp.processEvents()
+        txt = page.log_view.toPlainText()
+        if "hello from worker" in txt and "OK: xong" in txt:
+            break
+        time.sleep(0.01)
+    assert calls == ["job"], "worker khong chay - co the bi GC!"
+    assert "hello from worker" in page.log_view.toPlainText()
+    assert "OK: xong" in page.log_view.toPlainText()
+    # Da don dep xong.
+    assert page._worker is None
+    assert page._thread is None
+    assert page.test_btn.isEnabled()
+    # Cho thread dung han roi moi xoa page (tranh "QThread: Destroyed...").
+    for _ in range(100):
+        qapp.processEvents()
+        time.sleep(0.01)
+    page.deleteLater()
+    qapp.processEvents()
 
 
 def test_task_edit_dialog(qapp, tmp_path):

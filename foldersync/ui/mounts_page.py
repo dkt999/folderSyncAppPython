@@ -66,6 +66,10 @@ class MountsPage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._thread: QThread | None = None
+        # GIU worker o day: neu chi de bien local, Python se GC huy worker ngay
+        # khi _run_priv return -> signal started ban vao khoang khong, treo app.
+        # (manual_page va scheduler van giu reference nen khong bi.)
+        self._worker: PrivWorker | None = None
         self._tested_key: tuple | None = None  # (source, target, username, domain, guest)
 
         layout = QVBoxLayout(self)
@@ -182,6 +186,7 @@ class MountsPage(QWidget):
         self._set_busy(True)
         self._thread = QThread(self)
         worker = PrivWorker(job_fn)
+        self._worker = worker  # giu reference, chong Python GC giua chung
         worker.moveToThread(self._thread)
         self._thread.started.connect(worker.run)
         worker.log_line.connect(self._log)
@@ -191,8 +196,17 @@ class MountsPage(QWidget):
         worker.finished.connect(worker.deleteLater)
         self._thread.start()
 
+    def shutdown(self) -> None:
+        """Cho thread privileged (neu dang chay) ket thuc khi thoat app,
+        tranh crash 'QThread: Destroyed while thread is still running'."""
+        thread = self._thread
+        if thread is not None and thread.isRunning():
+            thread.quit()
+            thread.wait(5000)
+
     def _on_priv_done(self, result: dict, done_msg: str = "") -> None:
         self._thread = None
+        self._worker = None  # xong viec, cho phep GC
         self._set_busy(False)
         # Chay o GUI thread nen an toan khi cham vao widget.
         if result.get("ok"):

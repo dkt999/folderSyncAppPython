@@ -167,6 +167,7 @@ class MainWindow(FluentWindow):
         self._quitting = True
         self._scheduler.stop()
         self._scheduler.shutdown()
+        self.mounts_page.shutdown()
         save_tasks(self._tasks)
         if self._tray is not None:
             self._tray.hide()
