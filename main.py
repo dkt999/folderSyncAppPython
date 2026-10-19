@@ -38,6 +38,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("FolderSync")
     app.setOrganizationName("FolderSyncApp")
+    app.setDesktopFileName("foldersync.desktop")  # de GNOME hien dung icon tren taskbar
     app.setQuitOnLastWindowClosed(False)  # closing window keeps tray running
     setTheme(Theme.AUTO)
 
