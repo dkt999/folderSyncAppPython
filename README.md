@@ -54,6 +54,10 @@ trong app, quy trình 2 bước an toàn:
    Share có dấu cách (VD: `//com0068/02. share`) cũng OK —
    app tự escape thành `\040` khi ghi fstab (fstab không chịu được
    dấu cách thô, ghi thẳng là vỡ dòng).
+   Trước khi mount, app kiểm tra tên máy có phân giải được qua DNS không;
+   nếu không sẽ báo lỗi ngay kèm gợi ý dùng IP (Files tự dò máy trong mạng
+   nên mở được `smb://tên-máy/...`, nhưng mount hệ thống thì cần IP hoặc
+   tên phân giải được). Mọi bước đều hiện log chi tiết để biết kẹt ở đâu.
 2. **Lưu vào fstab & mount**: chỉ mở khóa sau khi mount thử thành công
    (đổi thông tin là phải thử lại). Khi lưu app sẽ:
    - backup `/etc/fstab` thành `/etc/fstab.bak.<ngày-giờ>`,
