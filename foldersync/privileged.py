@@ -33,9 +33,19 @@ def _run(cmd: list[str], timeout: int = MOUNT_TIMEOUT) -> tuple[int, str, str]:
     except subprocess.TimeoutExpired:
         return 124, "", f"Het thoi gian cho ({timeout}s) - server khong phan hoi"
 
-
+def _require_cifs_helper() -> dict | None:
+    if shutil.which("mount.cifs"):
+        return None
+    return _result(
+        False,
+        "Chưa cài cifs-utils (thiếu mount.cifs).",
+        "Chạy: sudo apt install cifs-utils",
+    )
 # ---------------------------------------------------------------- test mount
 def test_mount(source: str, options: str) -> dict:
+    missing = _require_cifs_helper()
+    if missing:
+        return missing
     """Mount THU vao thu muc tam, khong dung den fstab.
     Thanh cong -> chung to thong so (server/share/user/pass) dung."""
     tmpdir = tempfile.mkdtemp(prefix="foldersync-mount-test-")
