@@ -108,18 +108,25 @@ class TasksPage(QWidget):
         self.table.setItem(row, 2, item(task.destination))
         self.table.setItem(row, 3, item(", ".join(sorted(task.scheduled_times))))
 
-        enabled_check = CheckBox()
+        # Tai su dung checkbox cu neu co (tranh tao moi gay lech layout).
+        wrapper = self.table.cellWidget(row, COL_ENABLED)
+        if wrapper is None:
+            enabled_check = CheckBox()
+            enabled_check.stateChanged.connect(
+                lambda _state, t=task: self._on_enabled_toggled(t)
+            )
+            # Can giua checkbox trong cell.
+            wrapper = QWidget()
+            wrap_layout = QHBoxLayout(wrapper)
+            wrap_layout.setContentsMargins(0, 0, 0, 0)
+            wrap_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            wrap_layout.addWidget(enabled_check)
+            self.table.setCellWidget(row, COL_ENABLED, wrapper)
+        else:
+            enabled_check = wrapper.findChild(CheckBox)
+        enabled_check.blockSignals(True)
         enabled_check.setChecked(task.enabled)
-        enabled_check.stateChanged.connect(
-            lambda _state, t=task: self._on_enabled_toggled(t)
-        )
-        # Can giua checkbox trong cell.
-        wrapper = QWidget()
-        wrap_layout = QHBoxLayout(wrapper)
-        wrap_layout.setContentsMargins(0, 0, 0, 0)
-        wrap_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        wrap_layout.addWidget(enabled_check)
-        self.table.setCellWidget(row, COL_ENABLED, wrapper)
+        enabled_check.blockSignals(False)
 
         if task.is_running:
             status = "Running..."
