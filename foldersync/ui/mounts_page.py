@@ -112,8 +112,10 @@ class MountsPage(QWidget):
         row1.addWidget(self.source_edit, 1)
         row1.addWidget(BodyLabel("Điểm mount:"))
         self.target_edit = LineEdit()
-        self.target_edit.setPlaceholderText("/mnt/du-lieu")
+        self.target_edit.setPlaceholderText("VD: COM0068Share")
+        self.target_edit.setText("/mnt/")  # mac dinh san, nguoi dung chi go them ten
         self.target_edit.setClearButtonEnabled(True)
+        self.target_edit.setCursorPosition(len("/mnt/"))
         row1.addWidget(self.target_edit, 1)
         form.addLayout(row1)
 
@@ -202,9 +204,15 @@ class MountsPage(QWidget):
         self.refresh_table()
 
     def _form_values(self) -> tuple[str, str, str, str, str, bool]:
+        raw_target = self.target_edit.text().strip().rstrip("/")
+        # Chi go ten (khong co /) -> tu them /mnt/ phia truoc.
+        if raw_target and not raw_target.startswith("/"):
+            target = "/mnt/" + raw_target
+        else:
+            target = raw_target
         return (
             normalize_source(self.source_edit.text()),
-            self.target_edit.text().strip(),
+            target,
             self.user_edit.text().strip(),
             self.pass_edit.text(),
             self.domain_edit.text().strip(),

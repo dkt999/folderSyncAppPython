@@ -93,6 +93,8 @@ def validate_source(source: str) -> str | None:
 
 def validate_target(target: str) -> str | None:
     t = target.strip()
+    if not t:
+        return "Nhap ten diem mount, VD: COM0068Share (se thanh /mnt/COM0068Share)"
     if not t.startswith("/"):
         return "Diem mount phai la duong dan tuyet doi, VD: /mnt/du-lieu"
     if t in ("/", "/etc", "/bin", "/usr", "/var", "/home", "/root", "/boot"):
