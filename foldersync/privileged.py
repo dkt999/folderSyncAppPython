@@ -338,7 +338,13 @@ def run_privileged(args: list[str], stdin_text: str | None = None, timeout: int 
     if os.geteuid() != 0:
         if not shutil.which("pkexec"):
             return _result(False, "Khong tim thay pkexec de xin quyen root.")
-        cmd = ["pkexec", *cmd]
+        # pkexec khong dam bao giu thu muc hien tai -> python -m se khong
+        # tim thay module foldersync. Set PYTHONPATH tuyet doi qua env
+        # de chac chan, bat ke pkexec doi cwd thanh gi.
+        pythonpath = str(app_root)
+        if os.environ.get("PYTHONPATH"):
+            pythonpath += os.pathsep + os.environ["PYTHONPATH"]
+        cmd = ["pkexec", "env", f"PYTHONPATH={pythonpath}", *cmd]
     try:
         proc = subprocess.run(
             cmd, input=stdin_text, capture_output=True, text=True,
