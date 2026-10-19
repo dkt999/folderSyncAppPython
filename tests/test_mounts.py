@@ -9,6 +9,7 @@ from foldersync import privileged
 from foldersync.mounts import (
     build_fstab_line,
     build_options,
+    check_smb_port,
     credentials_path_for,
     escape_fstab,
     find_entry,
@@ -96,6 +97,11 @@ def test_normalize_target():
     assert normalize_target("/mnt/") == ""
     assert validate_target(normalize_target("")) is not None
     assert validate_target(normalize_target("COM0068Share")) is None
+
+
+def test_check_smb_port_closed():
+    # Port discard (9) gan nhu chac chan dong -> False nhanh, khong treo.
+    assert check_smb_port("127.0.0.1", port=9, timeout=1.0) is False
 
 
 def test_server_of():

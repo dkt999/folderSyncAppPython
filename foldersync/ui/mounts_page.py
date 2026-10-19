@@ -33,6 +33,7 @@ from ..mounts import (
     current_uid_gid,
     find_entry,
     has_nofail,
+    check_smb_port,
     is_mounted,
     normalize_source,
     normalize_target,
@@ -300,6 +301,19 @@ class MountsPage(QWidget):
                     ),
                 }
             log(f"→ {server} phân giải thành {ip}")
+            log("→ Đang kiểm tra port SMB (445) trên IP này...")
+            if not check_smb_port(ip):
+                return {
+                    "ok": False,
+                    "message": f"Phân giải được {server} thành {ip} nhưng không nối được port 445.",
+                    "detail": (
+                        "IP này có thể không phải máy chủ thật: DNS hệ thống trả về IP "
+                        "khác với IP mà Files (Nautilus) tìm thấy qua NetBIOS. Hãy kiểm "
+                        "tra IP thật của máy chủ (chạy 'ipconfig' trên máy đó, hoặc "
+                        "'nmblookup com0068' trên máy này) rồi dùng IP thay cho tên máy."
+                    ),
+                }
+            log("→ Port 445 mở, tiếp tục.")
             if not guest:
                 log("→ Đang xin quyền root để lưu credentials (có thể hiện hộp thoại mật khẩu)...")
                 r = run_privileged(

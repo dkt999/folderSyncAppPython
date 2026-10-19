@@ -72,6 +72,15 @@ def resolve_server(server: str) -> str | None:
         return None
 
 
+def check_smb_port(ip: str, port: int = 445, timeout: float = 5.0) -> bool:
+    """Kiem tra port SMB co mo tren IP khong. False = IP sai hoac firewall chan."""
+    try:
+        with socket.create_connection((ip, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def normalize_target(raw: str) -> str:
     """Chuan hoa diem mount thanh '/mnt/<ten>'.
     Nguoi dung chi can go ten (VD: COM0068Share); co go thua '/mnt/'
