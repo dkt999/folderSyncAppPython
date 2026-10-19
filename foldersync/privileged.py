@@ -42,7 +42,7 @@ def test_mount(source: str, options: str) -> dict:
     try:
         code, _out, err = _run(["mount", "-t", "cifs", source, tmpdir, "-o", options])
         if code != 0:
-            return _result(False, "Mount thu that bai.", _friendly_mount_error(err))
+            return _result(False, "Mount thu that bai.", _mount_error_detail(err))
         try:
             if not os.path.ismount(tmpdir):
                 return _result(False, "Mount thu that bai (khong thay diem mount).", err)
@@ -69,6 +69,15 @@ def _friendly_mount_error(stderr: str) -> str:
     if "no such file or directory" in s:
         return "Ten share khong ton tai tren server."
     return stderr or "Khong ro nguyen nhan."
+
+
+def _mount_error_detail(err: str) -> str:
+    """Thong bao than thien + giu lai loi goc de de chan doan."""
+    friendly = _friendly_mount_error(err)
+    raw = (err or "").strip()
+    if raw and raw not in friendly:
+        return f"{friendly}\nLỗi gốc: {raw}"
+    return friendly
 
 
 # ---------------------------------------------------------------- fstab
@@ -213,10 +222,10 @@ def mount_target(target: str) -> dict:
     if code != 0:
         # mount khong bao loi neu da mount roi? -> kiem tra ismount cho chac.
         if not os.path.ismount(target):
-            return _result(False, f"Khong mount duoc {target}.", _friendly_mount_error(err))
+            return _result(False, f"Khong mount duoc {target}.", _mount_error_detail(err))
     if os.path.ismount(target):
         return _result(True, f"Da mount {target}.")
-    return _result(False, f"Khong mount duoc {target}.", _friendly_mount_error(err))
+    return _result(False, f"Khong mount duoc {target}.", _mount_error_detail(err))
 
 
 def umount_target(target: str) -> dict:
