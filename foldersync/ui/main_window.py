@@ -151,7 +151,12 @@ class MainWindow(FluentWindow):
         self._tray.show()
 
     def _on_tray_activated(self, reason) -> None:
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+        # Tren GNOME/Wayland, double-click thuong khong duoc gui,
+        # chi co Trigger (click don). Nhan ca hai.
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        ):
             self._show_window()
 
     def _show_window(self) -> None:
