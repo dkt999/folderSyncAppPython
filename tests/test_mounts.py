@@ -16,6 +16,7 @@ from foldersync.mounts import (
     is_mounted,
     list_cifs_mounts,
     normalize_source,
+    normalize_target,
     parse_fstab,
     resolve_server,
     server_of,
@@ -83,6 +84,18 @@ def test_is_mounted_escaped_target(tmp_path):
     proc = tmp_path / "mounts"
     proc.write_text("//com0068/02.\\040share /mnt/du\\040lieu cifs rw 0 0\n")
     assert is_mounted("/mnt/du lieu", proc)
+
+
+def test_normalize_target():
+    assert normalize_target("COM0068Share") == "/mnt/COM0068Share"
+    assert normalize_target("/mnt/COM0068Share") == "/mnt/COM0068Share"
+    assert normalize_target("mnt/COM0068Share") == "/mnt/COM0068Share"
+    assert normalize_target("  COM0068Share  ") == "/mnt/COM0068Share"
+    assert normalize_target("") == ""
+    assert normalize_target("mnt") == ""
+    assert normalize_target("/mnt/") == ""
+    assert validate_target(normalize_target("")) is not None
+    assert validate_target(normalize_target("COM0068Share")) is None
 
 
 def test_server_of():

@@ -79,20 +79,19 @@ def test_mounts_page_form_validation(qapp):
     page.deleteLater()
 
 
-def test_mounts_page_target_prefill(qapp):
+def test_mounts_page_target_name_only(qapp):
     page = MountsPage()
-    # Mac dinh co san /mnt/, nguoi dung chi go them ten.
-    assert page.target_edit.text() == "/mnt/"
+    # O textbox trong, chi nhap ten; /mnt/ la prefix co dinh ngoai UI.
+    assert page.target_edit.text() == ""
     page.source_edit.setText("//192.168.1.10/dl")
     page.user_edit.setText("fen")
-    # Chi go ten -> tu thanh /mnt/COM0068Share.
     page.target_edit.setText("COM0068Share")
     vals = page._validate_form()
     assert vals is not None and vals[1] == "/mnt/COM0068Share"
-    # Go duong dan day du van giu nguyen.
-    page.target_edit.setText("/media/o-mang")
+    # Paste thua /mnt/ van chuan hoa dung, khong bi /mnt/mnt/.
+    page.target_edit.setText("/mnt/COM0068Share")
     vals = page._validate_form()
-    assert vals is not None and vals[1] == "/media/o-mang"
+    assert vals is not None and vals[1] == "/mnt/COM0068Share"
     # De trong -> bao loi.
     page.target_edit.setText("")
     assert page._validate_form() is None

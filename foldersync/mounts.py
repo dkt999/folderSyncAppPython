@@ -72,6 +72,20 @@ def resolve_server(server: str) -> str | None:
         return None
 
 
+def normalize_target(raw: str) -> str:
+    """Chuan hoa diem mount thanh '/mnt/<ten>'.
+    Nguoi dung chi can go ten (VD: COM0068Share); co go thua '/mnt/'
+    hay '/mnt/ten' vao cung tu chuan hoa, khong bao gio bi lap '/mnt/mnt/'."""
+    t = raw.strip().strip("/")
+    if not t or t.lower() == "mnt":
+        return ""
+    if t.lower().startswith("mnt/"):
+        t = t[4:].strip("/")
+    if not t:
+        return ""
+    return "/mnt/" + t
+
+
 def validate_source(source: str) -> str | None:
     """Kiem tra dinh dang //server/share. Tra ve None neu hop le,
     nguoc lai tra ve thong bao loi tieng Viet."""
@@ -92,9 +106,10 @@ def validate_source(source: str) -> str | None:
 
 
 def validate_target(target: str) -> str | None:
+    # target da qua normalize_target -> luon dang '/mnt/<ten>' hoac rong.
     t = target.strip()
     if not t:
-        return "Nhap ten diem mount, VD: COM0068Share (se thanh /mnt/COM0068Share)"
+        return "Nhap ten diem mount, VD: COM0068Share"
     if not t.startswith("/"):
         return "Diem mount phai la duong dan tuyet doi, VD: /mnt/du-lieu"
     if t in ("/", "/etc", "/bin", "/usr", "/var", "/home", "/root", "/boot"):
