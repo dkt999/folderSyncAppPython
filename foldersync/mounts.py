@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import re
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -50,6 +51,25 @@ def escape_fstab(value: str) -> str:
 def unescape_fstab(value: str) -> str:
     """Nguoc lai cua escape_fstab (dung khi doc fstab de hien thi)."""
     return value.replace("\\040", " ").replace("\\134", "\\")
+
+
+def server_of(source: str) -> str:
+    """Lay ten may tu '//server/share'."""
+    parts = normalize_source(source).split("/")
+    return parts[2] if len(parts) > 2 else ""
+
+
+def resolve_server(server: str) -> str | None:
+    """Phan giai ten may thanh IP. Tra ve None neu khong phan giai duoc.
+
+    Luu y: Nautilus (Files) tu do tim may trong mang (NetBIOS/WSD) nen mo duoc
+    smb://ten-may/...; nhung mount qua kernel (mount.cifs) can ten phan giai
+    duoc qua DNS he thong. Neu None -> nen dung dia chi IP thay cho ten may.
+    """
+    try:
+        return socket.gethostbyname(server)
+    except (socket.gaierror, UnicodeError):
+        return None
 
 
 def validate_source(source: str) -> str | None:

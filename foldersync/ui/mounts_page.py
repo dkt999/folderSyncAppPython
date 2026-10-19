@@ -36,6 +36,8 @@ from ..mounts import (
     is_mounted,
     normalize_source,
     parse_fstab,
+    resolve_server,
+    server_of,
     validate_source,
     validate_target,
 )
@@ -44,14 +46,17 @@ from ..privileged import run_privileged
 
 class PrivWorker(QObject):
     finished = pyqtSignal(dict)
+    log_line = pyqtSignal(str)
 
     def __init__(self, fn, parent: QObject | None = None) -> None:
+        # fn: (log: Callable[[str], None]) -> dict — log goi tu thread nen
+        # van an toan nho queued signal.
         super().__init__(parent)
         self._fn = fn
 
     def run(self) -> None:
         try:
-            self.finished.emit(self._fn())
+            self.finished.emit(self._fn(self.log_line.emit))
         except Exception as exc:  # noqa: BLE001
             self.finished.emit({"ok": False, "message": "Loi khong mong doi.", "detail": str(exc)})
 
@@ -169,25 +174,25 @@ class MountsPage(QWidget):
         for b in (self.test_btn, self.save_btn, self.verify_btn, self.umount_btn, self.remove_btn):
             b.setEnabled(not busy)
 
-    def _run_priv(self, fn, done_msg: str = "") -> None:
-        """Chay ham privileged tren thread nen."""
+    def _run_priv(self, job_fn, on_done) -> None:
+        """Chay ham privileged tren thread nen.
+        job_fn: (log) -> dict ; on_done: (result) -> None (chay o GUI thread)."""
         self._set_busy(True)
         self._thread = QThread(self)
-        worker = PrivWorker(fn)
+        worker = PrivWorker(job_fn)
         worker.moveToThread(self._thread)
         self._thread.started.connect(worker.run)
-        worker.finished.connect(lambda r: self._on_priv_done(r, done_msg))
+        worker.log_line.connect(self._log)
+        worker.finished.connect(on_done)
         worker.finished.connect(self._thread.quit)
         self._thread.finished.connect(self._thread.deleteLater)
         worker.finished.connect(worker.deleteLater)
         self._thread.start()
 
-    def _on_priv_done(self, result: dict, done_msg: str) -> None:
+    def _on_priv_done(self, result: dict, done_msg: str = "") -> None:
         self._thread = None
         self._set_busy(False)
         # Chay o GUI thread nen an toan khi cham vao widget.
-        for line in result.get("extra_logs", []):
-            self._log(line)
         if result.get("ok"):
             self._log("OK: " + (result.get("message") or done_msg))
         else:
@@ -262,8 +267,25 @@ class MountsPage(QWidget):
         options, _line = self._build_options_and_line()
         self._log(f"Mount thử {source} ...")
 
-        def job() -> dict:
+        def job(log) -> dict:
+            # 0. Kiem tra ten may phan giai duoc khong — neu khong thi mount.cifs
+            #    se treo rat lau. Dung bao loi som thay vi treo den.
+            server = server_of(source)
+            log(f"→ Đang phân giải tên máy '{server}' ...")
+            ip = resolve_server(server)
+            if ip is None:
+                return {
+                    "ok": False,
+                    "message": f"Không phân giải được tên máy '{server}'.",
+                    "detail": (
+                        "Files (Nautilus) tự dò máy trong mạng nên vẫn mở được smb://..., "
+                        "nhưng mount qua hệ thống cần tên phân giải được qua DNS. "
+                        "Hãy dùng địa chỉ IP thay cho tên máy, VD: //192.168.1.10/02. share"
+                    ),
+                }
+            log(f"→ {server} phân giải thành {ip}")
             if not guest:
+                log("→ Đang xin quyền root để lưu credentials (có thể hiện hộp thoại mật khẩu)...")
                 r = run_privileged(
                     ["write-credentials", "--path", str(credentials_path_for(target)),
                      "--username", username, "--domain", domain],
@@ -271,24 +293,17 @@ class MountsPage(QWidget):
                 )
                 if not r.get("ok"):
                     return r
+                log("→ Đã lưu credentials.")
+            log("→ Đang mount thử (chờ tối đa 60 giây)...")
             return run_privileged(["test-mount", "--source", source, "--options", options])
 
         def done(result: dict) -> None:
-            self._on_priv_done(result, "")
+            self._on_priv_done(result)
             if result.get("ok"):
                 self._tested_key = self._current_key()
                 self._log("→ Mount thử OK. Giờ có thể bấm [2. Lưu vào fstab & mount].")
 
-        self._set_busy(True)
-        self._thread = QThread(self)
-        worker = PrivWorker(job)
-        worker.moveToThread(self._thread)
-        self._thread.started.connect(worker.run)
-        worker.finished.connect(done)
-        worker.finished.connect(self._thread.quit)
-        self._thread.finished.connect(self._thread.deleteLater)
-        worker.finished.connect(worker.deleteLater)
-        self._thread.start()
+        self._run_priv(job, done)
 
     def _on_save(self) -> None:
         vals = self._validate_form()
@@ -307,17 +322,16 @@ class MountsPage(QWidget):
         self._log(f"Dòng fstab sẽ thêm:\n  {line}")
         self._log("Đang lưu (có backup + kiểm tra cú pháp)...")
 
-        def job() -> dict:
-            logs: list[str] = []
-
+        def job(log) -> dict:
             def step(cmd: list[str], stdin_text: str | None = None) -> dict | None:
                 r = run_privileged(cmd, stdin_text=stdin_text)
-                logs.append(("OK: " if r.get("ok") else "LỖI: ") + r.get("message", ""))
+                log(("✓ " if r.get("ok") else "✗ ") + r.get("message", ""))
                 if r.get("detail"):
-                    logs.append("  Chi tiết: " + r["detail"])
-                return None if r.get("ok") else {**r, "extra_logs": logs}
+                    log("  Chi tiết: " + r["detail"])
+                return None if r.get("ok") else r
 
             if not guest:
+                log("→ Đang xin quyền root để lưu credentials...")
                 failed = step(
                     ["write-credentials", "--path", str(credentials_path_for(target)),
                      "--username", username, "--domain", domain],
@@ -325,28 +339,35 @@ class MountsPage(QWidget):
                 )
                 if failed:
                     return failed
+            log("→ Đang tạo điểm mount...")
             failed = step(["ensure-mountpoint", "--target", target])
             if failed:
                 return failed
+            log("→ Đang ghi fstab (có backup)...")
             failed = step(["fstab-add", "--line", line])
             if failed:
                 return failed
-            r = run_privileged(["mount-target", "--target", target])
-            r["extra_logs"] = logs  # cac buoc giua; buoc cuoi do _on_priv_done in
-            return r
+            log("→ Đang mount...")
+            return run_privileged(["mount-target", "--target", target])
 
-        self._run_priv(job, "Hoàn tất: đã lưu fstab và mount.")
+        self._run_priv(job, lambda r: self._on_priv_done(r, "Hoàn tất: đã lưu fstab và mount."))
 
     def _on_verify(self) -> None:
         self._log("Kiểm tra cú pháp /etc/fstab ...")
-        self._run_priv(lambda: run_privileged(["fstab-verify"]), "")
+        self._run_priv(
+            lambda log: run_privileged(["fstab-verify"]),
+            lambda r: self._on_priv_done(r),
+        )
 
     def _on_umount(self) -> None:
         target = self._selected_target()
         if target is None:
             return
         self._log(f"Gỡ mount {target} ...")
-        self._run_priv(lambda: run_privileged(["umount-target", "--target", target]), "")
+        self._run_priv(
+            lambda log: run_privileged(["umount-target", "--target", target]),
+            lambda r: self._on_priv_done(r),
+        )
 
     def _on_remove(self) -> None:
         target = self._selected_target()
@@ -358,4 +379,7 @@ class MountsPage(QWidget):
                          position=InfoBarPosition.TOP)
             return
         self._log(f"Xóa {target} khỏi fstab (có backup)...")
-        self._run_priv(lambda: run_privileged(["fstab-remove", "--target", target]), "")
+        self._run_priv(
+            lambda log: run_privileged(["fstab-remove", "--target", target]),
+            lambda r: self._on_priv_done(r),
+        )

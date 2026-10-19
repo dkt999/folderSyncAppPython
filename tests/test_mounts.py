@@ -17,6 +17,8 @@ from foldersync.mounts import (
     list_cifs_mounts,
     normalize_source,
     parse_fstab,
+    resolve_server,
+    server_of,
     unescape_fstab,
     validate_source,
     validate_target,
@@ -81,6 +83,29 @@ def test_is_mounted_escaped_target(tmp_path):
     proc = tmp_path / "mounts"
     proc.write_text("//com0068/02.\\040share /mnt/du\\040lieu cifs rw 0 0\n")
     assert is_mounted("/mnt/du lieu", proc)
+
+
+def test_server_of():
+    assert server_of("//com0068/02. share") == "com0068"
+    assert server_of("smb://com0068/02. share/") == "com0068"
+    assert server_of("//192.168.1.10/dl") == "192.168.1.10"
+
+
+def test_resolve_server():
+    import re
+    import socket
+    from unittest import mock
+
+    # localhost that nao cung phan giai duoc thanh 1 IPv4.
+    ip = resolve_server("localhost")
+    assert ip is not None and re.fullmatch(r"\d+\.\d+\.\d+\.\d+", ip)
+    assert resolve_server("192.168.1.10") == "192.168.1.10"
+    # Ten khong phan giai duoc -> None (mock de khong phu thuoc DNS that,
+    # vi co mang dung DNS wildcard tra ve IP cho ca ten khong ton tai).
+    with mock.patch(
+        "foldersync.mounts.socket.gethostbyname", side_effect=socket.gaierror
+    ):
+        assert resolve_server("com0068") is None
 
 
 def test_build_options_has_nofail_and_netdev():
